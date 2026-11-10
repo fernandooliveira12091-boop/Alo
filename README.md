@@ -8,13 +8,13 @@ As sugestões usam regras e modelos locais. Não há API de IA, envio automátic
 
 ## Dados e acesso
 
-Os atendimentos ficam no localStorage deste navegador. Não há banco de dados remoto, sincronização entre dispositivos ou login próprio. Exporte os registros para backup. Registros do endereço anterior não migram automaticamente para outro domínio. Evite inserir senhas, CPF completo ou documentos médicos.
+Os atendimentos ficam no localStorage deste navegador. Os registros dos clientes não têm banco remoto nem sincronização entre dispositivos. O login é validado no servidor. Exporte os registros para backup. Registros do endereço anterior não migram automaticamente para outro domínio. Evite inserir senhas, CPF completo ou documentos médicos.
 
-O endereço workers.dev serve a interface publicamente. Cada navegador mantém seus próprios registros. Para limitar o acesso à equipe, configure Cloudflare Access antes de distribuir o endereço.
+O endereço workers.dev exige autenticação para abrir a interface e os arquivos. Cada navegador mantém seus próprios registros. Há uma única conta administradora; não há cadastro público de usuários.
 
 ## Verificação local
 
-Com Node.js 22 ou superior, execute `npm test`. Sirva a pasta `public/` em um servidor estático para usar a interface.
+Com Node.js 22 ou superior, execute `npm test`. Para testar a proteção completa, use `wrangler dev`; servir apenas `public/` não executa o login.
 
 ## Publicar na Cloudflare
 
@@ -34,3 +34,12 @@ A aba **Base jurídica** permite buscar 29 referências importadas do documento 
 O arquivo `public/legal.js` contém seis regras de triagem com trechos conferidos em fontes oficiais em 10/11/2026, abrangendo o regime previdenciário, qualidade de segurado, documentação e carência dos dois benefícios. A dispensa de carência do salário-maternidade considera a orientação atual do INSS e remete pedidos antigos ou negados à conferência individual. O texto da Súmula 77 da TNU descrito na compilação foi sinalizado como incorreto e não foi aplicado ao atendimento.
 
 As sugestões exibem referências internas separadas do texto copiado. Regime próprio é encaminhado para análise específica. Datas e categoria são informativas, sem cálculo de prazos ou conclusão de elegibilidade. O histórico registra a versão da base, as referências da sugestão e se houve edição manual; alterações no contexto sinalizam a necessidade de gerar nova sugestão. A base não se atualiza sozinha. Para uma revisão editorial, confira as fontes, altere as regras e incremente `LEGAL_VERSION` antes de publicar.
+
+
+## Login e senha
+
+A entrada fica em `/auth`. O Worker verifica a sessão antes de servir qualquer arquivo. Credenciais e sessões ficam no Durable Object SQLite `AuthStore`; os registros dos clientes continuam no navegador. Nenhuma senha é gravada no GitHub ou em localStorage. A senha usa PBKDF2-SHA-256 com salt aleatório e 100 mil iterações, compatíveis com Web Crypto do Workers. Cookies de sessão são Secure, HttpOnly, SameSite=Strict e expiram em 12 horas. Logout revoga a sessão; troca de senha exige a senha atual e invalida todas as sessões anteriores. Tentativas incorretas têm limite por origem de rede.
+
+O primeiro acesso exige um link privado com um token aleatório de 256 bits, entregue separadamente ao responsável. Apenas o hash desse token e a data de expiração são configurados em `wrangler.jsonc`. Ele expira após 48 horas e não permite outro cadastro depois que a conta é criada. O fragmento do link não é enviado no GET nem em referências de navegação e é removido do endereço ao carregar a tela. Não publique esse link nem compartilhe a sessão.
+
+Há alteração de senha autenticada em `/auth?mode=password`. Não há recuperação por e-mail nem cadastro de equipe nesta versão; recuperação exige intervenção do administrador da hospedagem. Preserve o namespace Durable Objects entre publicações para manter a conta. O login não criptografa os registros já salvos no navegador: use um perfil de navegador de confiança e exporte backups.

@@ -1,1 +1,31 @@
-{"name":"elo-triagem-beneficios","compatibility_date":"2026-11-10","assets":{"directory":"./public"},"workers_dev":true}
+{
+  "name": "elo-triagem-beneficios",
+  "main": "server/worker.mjs",
+  "compatibility_date": "2026-11-10",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "AUTH",
+        "class_name": "AuthStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "auth-v1",
+      "new_sqlite_classes": [
+        "AuthStore"
+      ]
+    }
+  ],
+  "vars": {
+    "BOOTSTRAP_TOKEN_HASH": "a8f29f7ffdd3f1a65bca1dea083de6193b51e88e9f659ae0a870533e7e8e4044",
+    "BOOTSTRAP_EXPIRES": "1794504839164"
+  }
+}
