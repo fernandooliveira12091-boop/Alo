@@ -1,5 +1,5 @@
 const aiState={busy:false,configured:null};
-function aiInput(c){return {type:c.type,stage:c.stage,tone:c.tone,facts:c.facts||{},profile:c.profile||{},incoming:c.incoming||'',history:(c.history||[]).slice(-6).map(h=>({date:h.date,stage:h.stage,incoming:h.incoming,reply:h.reply}))}}
+function aiInput(c){return {type:c.type,stage:c.stage,tone:c.tone,facts:c.facts||{},profile:c.profile||{},caseInfo:c.caseInfo||{},notes:c.notes||'',incoming:c.incoming||'',history:(c.history||[]).slice(-6).map(h=>({date:h.date,stage:h.stage,incoming:h.incoming,reply:h.reply}))}}
 async function aiHash(value){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function invalidateAI(c,stale=true){if(c?.ai){c.ai.reviewedAt='';if(stale)c.ai.stale=true}}
 function aiReview(c){if(!c.ai)return '';return `<div class="ai-review"><div class="labelrow"><strong>${c.ai.engine==='ai'?'✧ Sugestão de IA':'Modelo de encerramento'}</strong><span class="badge">Revisão humana</span></div><p>${c.ai.stale?'A conversa ou a triagem mudou. Gere uma nova sugestão ou use o modelo por regras.':c.ai.needsHuman?'Este caso precisa de análise individual. Confira as informações antes de responder.':'Confira os fatos e as referências antes de usar a mensagem.'}</p><label><input id="ai-reviewed" type="checkbox" ${c.ai.reviewedAt&&!c.ai.stale?'checked':''} ${c.ai.stale?'disabled':''}> Li, revisei e aprovo esta mensagem para copiar e enviar manualmente.</label><small>${c.ai.truncated?'Foram usados trechos das últimas 6 interações. ':''}A IA pode errar. As referências indicam a base consultada, sem validar automaticamente a conclusão.</small></div>`}
@@ -23,5 +23,5 @@ async function generateWithAI(){
 }
 if(typeof document!=='undefined'){
  document.addEventListener('input',event=>{const target=event.target;if(!['incoming','reply'].includes(target.id))return;invalidateAI(current(),target.id!=='reply');paintAIReview()},true);
- document.addEventListener('change',event=>{const target=event.target;if(['type','tone'].includes(target.id)||target.dataset?.field||target.dataset?.profile){invalidateAI(current());paintAIReview()}},true);
+ document.addEventListener('change',event=>{const target=event.target;if(['type','tone'].includes(target.id)||target.dataset?.field||target.dataset?.profile||target.dataset?.case||target.dataset?.confirm){invalidateAI(current());paintAIReview()}},true);
 }

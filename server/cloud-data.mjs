@@ -1,3 +1,4 @@
+import {crmFields,trackProgress} from './crm-data.mjs';
 const encoder=new TextEncoder();
 const LIMIT=5*1024*1024;
 export const DATA_LIMIT=LIMIT;
@@ -15,7 +16,7 @@ export function normalizeClients(input){
   const profile={};for(const k of ['regime','category','eventDate','requestDate']){if(c.profile?.[k]!=null)profile[k]=text(c.profile[k],100)}
   if(c.history!=null&&!Array.isArray(c.history)||c.history?.length>2000)throw Error('Histórico inválido ou muito extenso.');
   const history=(c.history||[]).map(h=>{if(!h||typeof h!=='object')throw Error('Histórico inválido.');return {date:text(h.date,100),stage:text(h.stage,100),incoming:text(h.incoming),reply:text(h.reply),legal:legal(h.legal),manualEdit:!!h.manualEdit,ai:ai(h.ai)}});
-  const record={id:c.id,name,type:c.type,stage:c.stage,facts,profile,history,incoming:text(c.incoming),reply:text(c.reply),tone:c.tone==='direct'?'direct':'warm',won:!!c.won,demo:!!c.demo,intent:text(c.intent,200),reason:text(c.reason,3000),legal:legal(c.legal),ai:ai(c.ai)};
+  const record={...crmFields(c),id:c.id,name,type:c.type,stage:c.stage,facts,profile,history,incoming:text(c.incoming),reply:text(c.reply),tone:c.tone==='direct'?'direct':'warm',won:!!c.won,demo:!!c.demo,intent:text(c.intent,200),reason:text(c.reason,3000),legal:legal(c.legal),ai:ai(c.ai)};
   if(encoder.encode(JSON.stringify(record)).length>95000)throw Error('Um atendimento ultrapassou 95 KB. Exporte seu histórico antes de continuar.');return record;
  });
  if(encoder.encode(JSON.stringify(result)).length>LIMIT)throw Error('Os dados ultrapassaram o limite de 5 MB.');return result;
@@ -48,7 +49,7 @@ export async function cloudAction(db,action,body){
    if(action==='cloud/import'){const existing=new Set(old.clients.map(c=>c.id));records=normalizeClients([...records.filter(c=>!existing.has(c.id)),...old.clients])}
    if(old.clients.length){await backup(tx,old,'automático diário','daily-'+new Date().toISOString().slice(0,10));const recordIds=new Set(records.map(c=>c.id));if(old.clients.some(c=>!recordIds.has(c.id)))await backup(tx,old,'antes de excluir')}
   }
-  const next=await writeSnapshot(tx,old,records);return json(next);
+  trackProgress(old,records,action);const next=await writeSnapshot(tx,old,records);return json(next);
  });
  }catch(e){return json({error:e.message||'Não foi possível salvar.'},400)}
 }
