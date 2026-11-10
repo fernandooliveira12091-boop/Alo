@@ -1,4 +1,5 @@
 import { authPage } from './auth-page.mjs';
+import { cloudAction, DATA_LIMIT } from './cloud-data.mjs';
 const encoder = new TextEncoder();
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = '__Host-elo_session';
@@ -31,6 +32,18 @@ export default {async fetch(request,env){
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   return secured(await call(action,{body,token,ip}));
  }
+ if(path.startsWith('/api/cloud/')){
+  const session=await call('me',{token});if(session.status!==200)return secured(session);
+  const action=path.slice('/api/'.length);
+  if(['cloud/list','cloud/backups'].includes(action)&&request.method==='GET')return secured(await call(action,{token,body:{}}));
+  if(!['cloud/save','cloud/import','cloud/backup','cloud/download','cloud/restore'].includes(action)||request.method!=='POST')return secured(json({error:'Não encontrado.'},404));
+  if(request.headers.get('Origin')!==url.origin)return secured(json({error:'Origem inválida.'},403));
+  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return secured(json({error:'Formato inválido.'},415));
+  if(Number(request.headers.get('Content-Length')||0)>DATA_LIMIT+20000)return secured(json({error:'Limite de 5 MB excedido.'},413));
+  const text=await request.text();if(encoder.encode(text).length>DATA_LIMIT+20000)return secured(json({error:'Limite de 5 MB excedido.'},413));
+  let body;try{body=JSON.parse(text);if(!body||typeof body!=='object')throw Error()}catch{return secured(json({error:'Dados inválidos.'},400))}
+  return secured(await call(action,{token,body}));
+ }
  const session=await call('me',{token});const signedIn=session.status===200;
  if(path==='/auth'){
   if(signedIn&&url.searchParams.get('mode')!=='password')return secured(new Response(null,{status:303,headers:{Location:'/'}}));
@@ -52,6 +65,7 @@ export class AuthStore {
   const valid=!!user&&session?.expires>now&&session.version===user.version;
   if(action==='me')return valid?json({username:user.username}):json({error:'Entre para continuar.'},401);
   const body=data.body||{};
+  if(action.startsWith('cloud/')){if(!valid)return json({error:'Entre para continuar.'},401);return cloudAction(this.db,action,body)}
   if(action==='logout'){if(token)await this.db.delete('session:'+await digest(token));return json({ok:true},200,{'Set-Cookie':cookie('',true)})}
   const key='rate:'+data.ip,limit=await this.db.get(key);
   if(limit?.until>now&&limit.count>=5)return json({error:'Muitas tentativas. Aguarde 15 minutos.'},429,{'Retry-After':String(Math.ceil((limit.until-now)/1000))});

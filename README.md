@@ -8,9 +8,9 @@ As sugestões usam regras e modelos locais. Não há API de IA, envio automátic
 
 ## Dados e acesso
 
-Os atendimentos ficam no localStorage deste navegador. Os registros dos clientes não têm banco remoto nem sincronização entre dispositivos. O login é validado no servidor. Exporte os registros para backup. Registros do endereço anterior não migram automaticamente para outro domínio. Evite inserir senhas, CPF completo ou documentos médicos.
+Os atendimentos são salvos no banco SQLite da Cloudflare, no Durable Object da conta autenticada. Use o mesmo login em outros aparelhos para acessar os dados. Alterações ainda não sincronizadas são guardadas temporariamente no navegador e indicadas na interface. Evite inserir senhas, CPF completo ou documentos médicos.
 
-O endereço workers.dev exige autenticação para abrir a interface e os arquivos. Cada navegador mantém seus próprios registros. Há uma única conta administradora; não há cadastro público de usuários.
+O endereço workers.dev exige autenticação para abrir a interface e os arquivos. Os aparelhos compartilham os registros salvos na mesma conta. Há uma única conta administradora; não há cadastro público de usuários.
 
 ## Verificação local
 
@@ -38,8 +38,23 @@ As sugestões exibem referências internas separadas do texto copiado. Regime pr
 
 ## Login e senha
 
-A entrada fica em `/auth`. O Worker verifica a sessão antes de servir qualquer arquivo. Credenciais e sessões ficam no Durable Object SQLite `AuthStore`; os registros dos clientes continuam no navegador. Nenhuma senha é gravada no GitHub ou em localStorage. A senha usa PBKDF2-SHA-256 com salt aleatório e 100 mil iterações, compatíveis com Web Crypto do Workers. Cookies de sessão são Secure, HttpOnly, SameSite=Strict e expiram em 12 horas. Logout revoga a sessão; troca de senha exige a senha atual e invalida todas as sessões anteriores. Tentativas incorretas têm limite por origem de rede.
+A entrada fica em `/auth`. O Worker verifica a sessão antes de servir qualquer arquivo. Credenciais, sessões e registros de clientes ficam no Durable Object SQLite `AuthStore`, com chaves separadas e validação de sessão em cada operação. Nenhuma senha é gravada no GitHub ou em localStorage. A senha usa PBKDF2-SHA-256 com salt aleatório e 100 mil iterações, compatíveis com Web Crypto do Workers. Cookies de sessão são Secure, HttpOnly, SameSite=Strict e expiram em 12 horas. Logout revoga a sessão; troca de senha exige a senha atual e invalida todas as sessões anteriores. Tentativas incorretas têm limite por origem de rede.
 
 O primeiro acesso exige um link privado com um token aleatório de 256 bits, entregue separadamente ao responsável. Apenas o hash desse token e a data de expiração são configurados em `wrangler.jsonc`. Ele expira após 48 horas e não permite outro cadastro depois que a conta é criada. O fragmento do link não é enviado no GET nem em referências de navegação e é removido do endereço ao carregar a tela. Não publique esse link nem compartilhe a sessão.
 
-Há alteração de senha autenticada em `/auth?mode=password`. Não há recuperação por e-mail nem cadastro de equipe nesta versão; recuperação exige intervenção do administrador da hospedagem. Preserve o namespace Durable Objects entre publicações para manter a conta. O login não criptografa os registros já salvos no navegador: use um perfil de navegador de confiança e exporte backups.
+Há alteração de senha autenticada em `/auth?mode=password`. Não há recuperação por e-mail nem cadastro de equipe nesta versão; recuperação exige intervenção do administrador da hospedagem. Preserve o namespace Durable Objects entre publicações para manter a conta. O login não criptografa cópias antigas ou alterações pendentes guardadas neste navegador: use um perfil de confiança e exporte backups.
+
+
+## Atendimentos na nuvem e backups
+
+A API `/api/cloud/*` exige sessão válida. Escritas verificam origem e formato, validam os dados e são confirmadas em transação. O cliente informa a revisão que carregou; revisões antigas recebem HTTP 409, sem sobrescrever dados. A interface tenta combinar alterações em campos independentes; conflitos no mesmo campo preservam a cópia local, oferecem download e exigem revisão antes de recarregar a nuvem.
+
+A sincronização ocorre após uma pausa nas edições e a leitura de outros aparelhos a cada 20 segundos enquanto a página está visível. Alterações feitas durante um envio são preservadas para o próximo envio. Falhas de rede deixam o status pendente e guardam uma cópia por usuário no localStorage. Não feche antes da confirmação de salvamento; logout é bloqueado enquanto houver alterações pendentes.
+
+A aba **Dados e backups** permite importar os registros antigos de `elo-v1` do navegador, importar JSON, baixar todos os dados atuais e criar/restaurar backups. A importação acrescenta identificadores ainda ausentes, preservando os que já existem na nuvem. Ela não apaga a cópia antiga do navegador. Não é possível acessar remotamente dados salvos em outro navegador: abra o navegador de origem ou importe o JSON exportado.
+
+Há uma cópia automática do estado anterior à primeira edição de cada dia UTC, além de cópias antes de exclusões e restaurações. Cópias manuais podem ser criadas a qualquer momento após sincronizar. As 14 cópias mais recentes são retidas no mesmo banco; para uma cópia independente, baixe o JSON e guarde fora do serviço. Restaurar exige confirmação e revisão atual; antes da restauração, uma cópia do estado atual é criada. Backups não incluem senhas e sessões.
+
+Limites desta versão: 1.000 atendimentos, 95 KB por atendimento e 5 MB de dados por conta, além dos limites da sua conta Cloudflare. Registros e snapshots são divididos em chaves para respeitar o limite de valor do armazenamento. Preserve o namespace e o identificador `elo-owner-v1`; a publicação não apaga dados nem altera o login existente.
+
+Verificação adicional executada: navegação com Chromium em duas sessões independentes contra a implementação local, incluindo primeiro acesso, importação, cadastro, sincronização nos dois sentidos, criação e restauração de backup. Os testes automatizados da API verificam autenticação, origem, concorrência, retenção e rejeição de dados inválidos.
