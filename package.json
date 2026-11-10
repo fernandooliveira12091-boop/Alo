@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node --check public/legal.js && node --check public/app.js && node --check public/auth-client.js && node --check public/cloud.js && node tests/triage.cjs && node --test tests/auth.mjs tests/cloud.mjs tests/cloud-client.mjs"
+    "test": "node --check public/legal.js && node --check public/app.js && node --check public/auth-client.js && node --check public/cloud.js && node --check public/ai-client.js && node tests/triage.cjs && node --test tests/auth.mjs tests/cloud.mjs tests/cloud-client.mjs tests/ai.mjs tests/ai-client.mjs"
   }
 }

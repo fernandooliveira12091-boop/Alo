@@ -4,7 +4,7 @@ Atendimento manual para salário-maternidade e benefício por incapacidade tempo
 
 Cadastre um cliente, cole a mensagem recebida, preencha a triagem e gere a próxima resposta. Revise, copie e envie manualmente. Registre o envio e avance o funil.
 
-As sugestões usam regras e modelos locais. Não há API de IA, envio automático ao WhatsApp ou garantia de concessão de benefícios.
+As sugestões podem usar IA na Cloudflare ou modelos por regras. Não há envio automático ao WhatsApp nem garantia de concessão de benefícios. A sugestão de IA exige revisão antes de liberar cópia e registro de envio.
 
 ## Dados e acesso
 
@@ -58,3 +58,16 @@ Há uma cópia automática do estado anterior à primeira edição de cada dia U
 Limites desta versão: 1.000 atendimentos, 95 KB por atendimento e 5 MB de dados por conta, além dos limites da sua conta Cloudflare. Registros e snapshots são divididos em chaves para respeitar o limite de valor do armazenamento. Preserve o namespace e o identificador `elo-owner-v1`; a publicação não apaga dados nem altera o login existente.
 
 Verificação adicional executada: navegação com Chromium em duas sessões independentes contra a implementação local, incluindo primeiro acesso, importação, cadastro, sincronização nos dois sentidos, criação e restauração de backup. Os testes automatizados da API verificam autenticação, origem, concorrência, retenção e rejeição de dados inválidos.
+
+
+## IA para sugestão de respostas
+
+O botão **Gerar resposta com IA** chama a API autenticada `/api/ai/suggest`. O servidor usa Workers AI, com binding `AI`, no modelo `@cf/meta/llama-3.3-70b-instruct-fp8-fast`. Não há chave de API no navegador e não é necessária uma conta adicional de IA. O uso segue a franquia e a cobrança da conta Cloudflare; consulte https://developers.cloudflare.com/workers-ai/platform/pricing/ . O aplicativo limita tentativas a 60 por dia UTC, com intervalo mínimo de quatro segundos entre solicitações, configurável por `AI_DAILY_LIMIT`. Falhas também contam para o limite; não há repetição automática de inferências.
+
+O contexto contém benefício, etapa, tom, triagem, categoria e datas, mensagem atual (até 4.000 caracteres) e até seis interações recentes (até 1.400 caracteres por mensagem). O nome cadastrado, outras fichas, senhas de login e a compilação não revisada não são enviados. Padrões reconhecidos de CPF, telefone, e-mail e credenciais são ocultados antes da inferência. Isso não é anonimização completa de texto livre: evite inserir identificadores ou documentos sensíveis.
+
+A base enviada ao modelo vem exclusivamente dos trechos revisados em `server/legal-catalog.mjs`; um teste exige paridade com `public/legal.js`. O contexto de clientes é tratado como dado, sem ferramentas de ação. A saída é JSON, validado em formato e identificadores de fontes, com bloqueios adicionais de algumas promessas, valores, prazos e pedidos de credenciais. Essas verificações não certificam a correção jurídica da resposta: a revisão humana continua obrigatória. Casos que precisam de análise ficam sinalizados. A IA não consulta a internet nem atualiza a legislação automaticamente.
+
+Na interface, **Li, revisei e aprovo** libera a cópia e o registro manual. Editar a resposta revoga a aprovação; mudar a mensagem ou a triagem exige nova geração ou modelo por regras. O resultado de uma requisição atrasada nunca substitui uma edição feita durante a geração. Modelo, horário, fontes, revisão e eventual edição são registrados no histórico e sincronizados na nuvem. A IA não envia mensagens a clientes. O botão de modelos por regras continua disponível; falhas de IA são identificadas, sem fingir que o modelo local foi gerado por IA.
+
+O diagnóstico `/api/ai/check` é restrito a um token aleatório temporário cujo hash consta na configuração. Expira em uma hora e permite no máximo três inferências com um caso fictício, sem ler ou gravar atendimentos reais. Ele retorna apenas sucesso, modelo e versão da base. Não forneça o token a visitantes. O fluxo normal de sugestões exige login e proteção de origem.

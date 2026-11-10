@@ -4,6 +4,7 @@ export const DATA_LIMIT=LIMIT;
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
 function text(value,max=20000){if(value==null)return '';if(typeof value!=='string'||value.length>max)throw Error('Há um campo de texto maior que o limite permitido.');return value}
 function legal(value){if(value==null)return null;if(typeof value!=='object'||!Array.isArray(value.sourceIds)||value.sourceIds.length>32)throw Error('Referências da sugestão inválidas.');return {version:text(value.version,100),sourceIds:value.sourceIds.map(x=>text(x,100)),fingerprint:text(value.fingerprint,60000),generatedReply:text(value.generatedReply),note:text(value.note,3000)}}
+function ai(value){if(value==null)return null;if(typeof value!=='object'||!['ai','rules'].includes(value.engine))throw Error('Metadados da sugestão inválidos.');return {engine:value.engine,model:text(value.model,200),generatedAt:text(value.generatedAt,100),contextHash:text(value.contextHash,100),reviewedAt:text(value.reviewedAt,100),needsHuman:!!value.needsHuman,stale:!!value.stale,truncated:!!value.truncated}}
 export function normalizeClients(input){
  if(!Array.isArray(input)||input.length>1000)throw Error('O limite é de 1.000 atendimentos por conta.');
  const ids=new Set();const result=input.map(c=>{
@@ -13,8 +14,8 @@ export function normalizeClients(input){
   const facts={};for(const k of ['situation','insured','docs','request']){const v=c.facts?.[k];if(v!=null&&!['','yes','no','review'].includes(v))throw Error('Triagem inválida.');if(v!=null)facts[k]=v}
   const profile={};for(const k of ['regime','category','eventDate','requestDate']){if(c.profile?.[k]!=null)profile[k]=text(c.profile[k],100)}
   if(c.history!=null&&!Array.isArray(c.history)||c.history?.length>2000)throw Error('Histórico inválido ou muito extenso.');
-  const history=(c.history||[]).map(h=>{if(!h||typeof h!=='object')throw Error('Histórico inválido.');return {date:text(h.date,100),stage:text(h.stage,100),incoming:text(h.incoming),reply:text(h.reply),legal:legal(h.legal),manualEdit:!!h.manualEdit}});
-  const record={id:c.id,name,type:c.type,stage:c.stage,facts,profile,history,incoming:text(c.incoming),reply:text(c.reply),tone:c.tone==='direct'?'direct':'warm',won:!!c.won,demo:!!c.demo,intent:text(c.intent,200),reason:text(c.reason,3000),legal:legal(c.legal)};
+  const history=(c.history||[]).map(h=>{if(!h||typeof h!=='object')throw Error('Histórico inválido.');return {date:text(h.date,100),stage:text(h.stage,100),incoming:text(h.incoming),reply:text(h.reply),legal:legal(h.legal),manualEdit:!!h.manualEdit,ai:ai(h.ai)}});
+  const record={id:c.id,name,type:c.type,stage:c.stage,facts,profile,history,incoming:text(c.incoming),reply:text(c.reply),tone:c.tone==='direct'?'direct':'warm',won:!!c.won,demo:!!c.demo,intent:text(c.intent,200),reason:text(c.reason,3000),legal:legal(c.legal),ai:ai(c.ai)};
   if(encoder.encode(JSON.stringify(record)).length>95000)throw Error('Um atendimento ultrapassou 95 KB. Exporte seu histórico antes de continuar.');return record;
  });
  if(encoder.encode(JSON.stringify(result)).length>LIMIT)throw Error('Os dados ultrapassaram o limite de 5 MB.');return result;

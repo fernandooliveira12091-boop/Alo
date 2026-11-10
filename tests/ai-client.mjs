@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import fs from 'node:fs';
+test('IA exige aprovação; edições e mudança de contexto revogam a aprovação',()=>{
+ const doc={addEventListener(){}};const c={document:doc};vm.createContext(c);vm.runInContext(fs.readFileSync(new URL('../public/ai-client.js',import.meta.url),'utf8'),c);vm.runInContext("var x={ai:{engine:'ai',reviewedAt:'',stale:false}}",c);assert.equal(vm.runInContext('aiCanUse(x)',c),false);vm.runInContext("x.ai.reviewedAt='2026-11-10T12:00:00Z'",c);assert.equal(vm.runInContext('aiCanUse(x)',c),true);vm.runInContext('invalidateAI(x,false)',c);assert.equal(vm.runInContext('aiCanUse(x)',c),false);assert.equal(vm.runInContext('x.ai.stale',c),false);vm.runInContext("x.ai.reviewedAt='approved';invalidateAI(x,true)",c);assert.equal(vm.runInContext('x.ai.stale',c),true);assert.equal(vm.runInContext('aiCanUse({})',c),true);
+});

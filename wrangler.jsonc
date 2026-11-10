@@ -26,6 +26,13 @@
   ],
   "vars": {
     "BOOTSTRAP_TOKEN_HASH": "a8f29f7ffdd3f1a65bca1dea083de6193b51e88e9f659ae0a870533e7e8e4044",
-    "BOOTSTRAP_EXPIRES": "1794504839164"
+    "BOOTSTRAP_EXPIRES": "1794504839164",
+    "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "AI_DAILY_LIMIT": "60",
+    "AI_PROBE_HASH": "a722e75350c22be235d3428799ade03f0b0108922d1444c46476db5eff3c4ba1",
+    "AI_PROBE_EXPIRES": "1794338421111"
+  },
+  "ai": {
+    "binding": "AI"
   }
 }

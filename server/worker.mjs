@@ -1,5 +1,6 @@
 import { authPage } from './auth-page.mjs';
 import { cloudAction, DATA_LIMIT } from './cloud-data.mjs';
+import { suggestAI, reserveAI, inputContext, AI_MODEL } from './ai.mjs';
 const encoder = new TextEncoder();
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = '__Host-elo_session';
@@ -32,6 +33,27 @@ export default {async fetch(request,env){
   const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');
   return secured(await call(action,{body,token,ip}));
  }
+ if(path.startsWith('/api/ai/')){
+  // Diagnóstico de publicação: token aleatório temporário, máximo de três testes, somente dados fictícios.
+  if(path==='/api/ai/check'&&request.method==='POST'&&Date.now()<Number(env.AI_PROBE_EXPIRES)&&env.AI_PROBE_HASH){
+   const hash=await digest(request.headers.get('X-Elo-Deploy-Check')||'');
+   if(equal(hash,env.AI_PROBE_HASH)){
+    const allowed=await call('ai/probe',{probeHash:hash});if(allowed.status!==200)return secured(allowed);
+    const check=await suggestAI(env,{client:{type:'m',stage:1,tone:'warm',facts:{},profile:{regime:'rgps'},history:[],incoming:'Meu bebê nasceu há um mês. Estou desempregada. Como podemos analisar meu caso?'}});
+    if(check.status!==200)return secured(check);const result=await check.json();return secured(json({ok:result.engine==='ai',model:result.model,baseVersion:result.baseVersion}));
+   }
+  }
+  const session=await call('me',{token});if(session.status!==200)return secured(session);
+  if(path==='/api/ai/status'&&request.method==='GET')return secured(json({configured:!!env.AI?.run,model:env.AI_MODEL||AI_MODEL,dailyLimit:Number(env.AI_DAILY_LIMIT)||60}));
+  if(path!=='/api/ai/suggest'||request.method!=='POST')return secured(json({error:'Não encontrado.'},404));
+  if(request.headers.get('Origin')!==url.origin)return secured(json({error:'Origem inválida.'},403));
+  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return secured(json({error:'Formato inválido.'},415));
+  if(Number(request.headers.get('Content-Length')||0)>110000)return secured(json({error:'O contexto ultrapassou o limite permitido.'},413));
+  const raw=await request.text();if(encoder.encode(raw).length>110000)return secured(json({error:'O contexto ultrapassou o limite permitido.'},413));
+  let body;try{body=JSON.parse(raw);inputContext(body)}catch(e){return secured(json({error:'Contexto inválido. Confira a mensagem e a triagem.'},400))}
+  const quota=await call('ai/reserve',{token,body:{limit:Number(env.AI_DAILY_LIMIT)||60}});if(quota.status!==200)return secured(quota);
+  return secured(await suggestAI(env,body));
+ }
  if(path.startsWith('/api/cloud/')){
   const session=await call('me',{token});if(session.status!==200)return secured(session);
   const action=path.slice('/api/'.length);
@@ -59,12 +81,17 @@ export class AuthStore {
  constructor(state,env){this.state=state;this.env=env;this.db=state.storage}
  async fetch(request){return this.state.blockConcurrencyWhile(async()=>{
   const action=new URL(request.url).pathname.slice(1),data=await request.json(),now=Date.now();
+  if(action==='ai/probe'){
+   if(now>=Number(this.env.AI_PROBE_EXPIRES)||!equal(data.probeHash,this.env.AI_PROBE_HASH))return json({error:'Não autorizado.'},401);
+   const key='ai-probe:'+data.probeHash,count=await this.db.get(key)||0;if(count>=3)return json({error:'Diagnóstico já executado.'},429);await this.db.put(key,count+1);return json({ok:true});
+  }
   const user=await this.db.get('owner');
   if(action==='state')return json({initialized:!!user});
   const token=data.token,session=/^[a-f0-9]{64}$/.test(token||'')?await this.db.get('session:'+await digest(token)):null;
   const valid=!!user&&session?.expires>now&&session.version===user.version;
   if(action==='me')return valid?json({username:user.username}):json({error:'Entre para continuar.'},401);
   const body=data.body||{};
+  if(action==='ai/reserve'){if(!valid)return json({error:'Entre para continuar.'},401);return reserveAI(this.db,body,now)}
   if(action.startsWith('cloud/')){if(!valid)return json({error:'Entre para continuar.'},401);return cloudAction(this.db,action,body)}
   if(action==='logout'){if(token)await this.db.delete('session:'+await digest(token));return json({ok:true},200,{'Set-Cookie':cookie('',true)})}
   const key='rate:'+data.ip,limit=await this.db.get(key);
