@@ -26,3 +26,11 @@ Em **Settings → Secrets and variables → Actions** deste repositório configu
 Não envie tokens no chat nem os coloque no código. Execute **Actions → Validar e publicar na Cloudflare → Run workflow**. O log da publicação informa o endereço real em workers.dev. Pushes posteriores em main também validam e publicam automaticamente.
 
 O Worker se chama `elo-triagem-beneficios`, conforme `wrangler.jsonc`. O repositório não inclui dados de clientes ou credenciais do Sites.
+
+## Base jurídica integrada
+
+A aba **Base jurídica** permite buscar 29 referências importadas do documento fornecido e consultar o original em `public/legal/compilacao-original.md`. A descrição e o título do arquivo não são certificação de vigência. Referências não conferidas ficam apenas como consulta e nunca são executadas como instruções ou regras.
+
+O arquivo `public/legal.js` contém seis regras de triagem com trechos conferidos em fontes oficiais em 10/11/2026, abrangendo o regime previdenciário, qualidade de segurado, documentação e carência dos dois benefícios. A dispensa de carência do salário-maternidade considera a orientação atual do INSS e remete pedidos antigos ou negados à conferência individual. O texto da Súmula 77 da TNU descrito na compilação foi sinalizado como incorreto e não foi aplicado ao atendimento.
+
+As sugestões exibem referências internas separadas do texto copiado. Regime próprio é encaminhado para análise específica. Datas e categoria são informativas, sem cálculo de prazos ou conclusão de elegibilidade. O histórico registra a versão da base, as referências da sugestão e se houve edição manual; alterações no contexto sinalizam a necessidade de gerar nova sugestão. A base não se atualiza sozinha. Para uma revisão editorial, confira as fontes, altere as regras e incremente `LEGAL_VERSION` antes de publicar.

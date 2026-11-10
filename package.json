@@ -1,1 +1,8 @@
-{"name":"elo-triagem-beneficios","version":"1.0.0","private":true,"scripts":{"test":"node --check public/app.js && node tests/triage.cjs"}}
+{
+  "name": "elo-triagem-beneficios",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --check public/legal.js && node --check public/app.js && node tests/triage.cjs"
+  }
+}
